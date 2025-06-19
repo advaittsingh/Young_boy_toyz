@@ -15,13 +15,13 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Mock user data
     final user = {
-      'name': 'John Doe',
-      'email': 'john.doe@example.com',
-      'phone': '+91 98765 43210',
-      'instagram': '@johndoe',
+      'name': 'Advait Singh',
+      'email': 'Advaitsingh05@gmail.com',
+      'phone': '+91 9541200124',
+      'instagram': '@advaittsingh',
       'youtube': 'youtube.com/@johndoe',
       'bio': 'Car enthusiast and collector. Specializing in modified Japanese cars.',
-      'joinedDate': 'January 2024',
+      'joinedDate': '13 June 2025',
       'listingsCount': 5,
       'favoritesCount': 12,
     };

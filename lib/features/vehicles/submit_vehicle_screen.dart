@@ -22,6 +22,9 @@ class _SubmitVehicleScreenState extends State<SubmitVehicleScreen> {
   final _youtubeController = TextEditingController();
   final _locationController = TextEditingController();
   final _modificationController = TextEditingController();
+  final _vipNumberController = TextEditingController(); // ✅ Added
+
+  bool _isVipNumber = false; // ✅ Added
 
   String _selectedMake = '';
   String _selectedModel = '';
@@ -66,6 +69,7 @@ class _SubmitVehicleScreenState extends State<SubmitVehicleScreen> {
     _youtubeController.dispose();
     _locationController.dispose();
     _modificationController.dispose();
+    _vipNumberController.dispose(); // ✅ Added
     super.dispose();
   }
 
@@ -447,6 +451,28 @@ class _SubmitVehicleScreenState extends State<SubmitVehicleScreen> {
               decoration: const InputDecoration(labelText: 'Location', isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12)),
               validator: (value) => value == null || value.isEmpty ? 'Enter location' : null,
             ),
+             const SizedBox(height: 8),
+            CheckboxListTile(
+              title: const Text('Has VIP Number'),
+              value: _isVipNumber,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (value) {
+                setState(() {
+                  _isVipNumber = value ?? false;
+                });
+              },
+            ),
+            if (_isVipNumber)
+              TextFormField(
+                controller: _vipNumberController,
+                decoration: const InputDecoration(labelText: 'VIP Number', isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12)),
+                validator: (value) {
+                  if (_isVipNumber && (value == null || value.isEmpty)) {
+                    return 'Enter VIP number';
+                  }
+                  return null;
+                },
+              ),
             const SizedBox(height: 24),
             // Images
             Text('Images', style: Theme.of(context).textTheme.headlineMedium),
@@ -598,7 +624,7 @@ class _SubmitVehicleScreenState extends State<SubmitVehicleScreen> {
             ),
             const SizedBox(height: 24),
             // Description
-            Text('Description', style: Theme.of(context).textTheme.headlineMedium),
+            Text('Aftermarket Details', style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 16),
             TextFormField(
               controller: _descriptionController,

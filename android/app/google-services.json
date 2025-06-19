@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "400423059749",
+    "project_id": "ybt-mobile-app",
+    "storage_bucket": "ybt-mobile-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:400423059749:android:583ca545425a60edaf9acc",
+        "android_client_info": {
+          "package_name": "com.android.application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAloiBpkA-9-6heErDAcePT6oV-U32BQts"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

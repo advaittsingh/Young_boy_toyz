@@ -148,10 +148,16 @@ class _HomeContentState extends State<HomeContent> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const SizedBox(width: 48), // For symmetry
-              const Text(
-                'Young Boy Toyz',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+              Image.asset(
+                'assets/images/LOGO.png',
+                width: 250,
+                height: 80,
+                fit: BoxFit.contain,
               ),
+              // const Text(
+              //   'Young Boy Toyz',
+              //   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+              // ),
               IconButton(
                 icon: const Icon(Icons.notifications_none_rounded),
                 onPressed: () {},
