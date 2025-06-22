@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/services/auth_service.dart';
-import 'signup_screen.dart';
-import 'otp_screen.dart';
 import '../home/home_screen.dart';
+import 'otp_screen.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,223 +11,207 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final _adminEmailController = TextEditingController();
-  final _adminPasswordController = TextEditingController();
-  final _userEmailController = TextEditingController();
-  final _userNumberController = TextEditingController();
-  String? _errorMessage;
-  bool _isLoading = false;
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _numberController = TextEditingController();
+  final _passwordController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
+  bool _isOtpLogin = true;
+  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _adminEmailController.dispose();
-    _adminPasswordController.dispose();
-    _userEmailController.dispose();
-    _userNumberController.dispose();
+    _emailController.dispose();
+    _numberController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  void _loginSuperAdmin() {
-    if (_adminEmailController.text.isEmpty || _adminPasswordController.text.isEmpty) {
-      setState(() { _errorMessage = 'Please fill in all fields.'; });
-      return;
-    }
+  Future<void> _loginWithOtp() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-    setState(() { _isLoading = true; _errorMessage = null; });
-    final success = AuthService().loginSuperAdmin(
-      _adminEmailController.text.trim(),
-      _adminPasswordController.text.trim(),
-    );
-    setState(() { _isLoading = false; });
-    if (success) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } else {
-      setState(() { _errorMessage = 'Invalid super admin credentials.'; });
-    }
-  }
+    final email = _emailController.text.trim();
+    final number = _numberController.text.trim();
 
-  void _loginUser() {
-    if (_userEmailController.text.isEmpty || _userNumberController.text.isEmpty) {
-      setState(() { _errorMessage = 'Please fill in all fields.'; });
-      return;
-    }
+    final emailOtp = AuthService().loginWithOtp(email, number);
 
-    setState(() { _isLoading = true; _errorMessage = null; });
-    final otp = AuthService().loginUser(
-      _userEmailController.text.trim(),
-      _userNumberController.text.trim(),
-    );
-    setState(() { _isLoading = false; });
-    if (otp != null) {
+    if (emailOtp != null) {
+      final numberOtp = AuthService().getGeneratedNumberOtp();
+
+      setState(() => _isLoading = false);
+
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => OTPScreen(
             isLogin: true,
-            email: _userEmailController.text.trim(),
-            number: _userNumberController.text.trim(),
+            email: email,
+            number: number,
+            emailOtp: emailOtp,
+            numberOtp: numberOtp,
           ),
         ),
       );
     } else {
-      setState(() { _errorMessage = 'User not found. Please sign up.'; });
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Invalid credentials. Try again.';
+      });
+    }
+  }
+
+  Future<void> _loginWithPassword() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    final role = await AuthService().loginWithPassword(email, password);
+
+    if (role != null) {
+      setState(() => _isLoading = false);
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
+      );
+    } else {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Invalid email or password.';
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 40),
-            const Text(
-              'Welcome Back',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 40),
+              const Text(
+                'Login',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 40),
-            TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'Super Admin'),
-                Tab(text: 'User'),
-              ],
-              labelColor: Theme.of(context).primaryColor,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Theme.of(context).primaryColor,
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Super Admin Login
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextField(
-                          controller: _adminEmailController,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _adminPasswordController,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                            border: OutlineInputBorder(),
-                          ),
-                          obscureText: true,
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _isLoading ? null : _loginSuperAdmin,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: _isLoading 
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Login'),
-                        ),
-                        if (_errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  // User Login
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextField(
-                          controller: _userEmailController,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _userNumberController,
-                          decoration: const InputDecoration(
-                            labelText: 'Phone Number',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _isLoading ? null : _loginUser,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Send OTP'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const SignupScreen()),
-                            );
-                          },
-                          child: const Text('Don\'t have an account? Sign up'),
-                        ),
-                        if (_errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 40),
+              TextField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: const Icon(Icons.email),
+                  filled: true,
+                  fillColor: Colors.grey[900],
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelStyle: const TextStyle(color: Colors.red),
+                ),
+                keyboardType: TextInputType.emailAddress,
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              if (_isOtpLogin)
+                TextField(
+                  controller: _numberController,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    prefixIcon: const Icon(Icons.phone),
+                    filled: true,
+                    fillColor: Colors.grey[900],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+              if (!_isOtpLogin)
+                TextField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: const Icon(Icons.lock),
+                    filled: true,
+                    fillColor: Colors.grey[900],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  obscureText: true,
+                ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _isLoading
+                    ? null
+                    : _isOtpLogin
+                        ? _loginWithOtp
+                        : _loginWithPassword,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : Text(
+                        _isOtpLogin ? 'Login with OTP' : 'Login with Password',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isOtpLogin = !_isOtpLogin;
+                    _errorMessage = null;
+                  });
+                },
+                child: Text(
+                  _isOtpLogin ? 'Login with Password instead' : 'Login with OTP instead',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SignupScreen()),
+                  );
+                },
+                child: const Text(
+                  "Don't have an account? Sign up",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
-} 
+}

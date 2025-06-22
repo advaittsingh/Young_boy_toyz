@@ -15,15 +15,23 @@ class _SplashScreenState extends State<SplashScreen> {
   late VideoPlayerController _controller;
   bool _isVideoInitialized = false;
   bool _hasNavigated = false;
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeVideo();
+    _setupSplashFlow();
+  }
+
+  Future<void> _setupSplashFlow() async {
+    final authService = AuthService();
+    await authService.initialize(); // ensure SharedPreferences and user state is loaded
+    _isLoggedIn = await authService.isUserLoggedIn(); // check login state
+    await _initializeVideo();
   }
 
   Future<void> _initializeVideo() async {
-    _controller = VideoPlayerController.asset('assets/videos/ybt_intro_1.mp4'); // ✅ Rename your file!
+    _controller = VideoPlayerController.asset('assets/videos/ybt_intro_1.mp4');
 
     try {
       await _controller.initialize();
@@ -31,10 +39,9 @@ class _SplashScreenState extends State<SplashScreen> {
         _isVideoInitialized = true;
       });
 
-      _controller.play();
-      _controller.setLooping(false);
+      await _controller.setLooping(false);
+      await _controller.play();
 
-      // Add listener for end of video
       _controller.addListener(() {
         if (_controller.value.position >= _controller.value.duration &&
             !_hasNavigated) {
@@ -43,7 +50,7 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       });
     } catch (e) {
-      print('Video load failed: $e');
+      debugPrint('Video load failed: $e');
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted && !_hasNavigated) {
           _hasNavigated = true;
@@ -54,12 +61,9 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _navigateToNextScreen() {
-    final authService = AuthService();
-    final isLoggedIn = authService.currentUserEmail != null;
-
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => isLoggedIn ? const HomeScreen() : const LoginScreen(),
+        builder: (_) => _isLoggedIn ? const HomeScreen() : const LoginScreen(),
       ),
     );
   }

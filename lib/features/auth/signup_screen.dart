@@ -14,46 +14,34 @@ class _SignupScreenState extends State<SignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _numberController = TextEditingController();
+  final _passwordController = TextEditingController();
+
   String? _emailOtp;
   String? _numberOtp;
   String? _errorMessage;
   bool _isLoading = false;
 
-  String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your email';
-    }
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value)) {
-      return 'Please enter a valid email';
-    }
-    return null;
-  }
-
-  String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your phone number';
-    }
-    final phoneRegex = RegExp(r'^\d{10}$');
-    if (!phoneRegex.hasMatch(value)) {
-      return 'Please enter a valid 10-digit phone number';
-    }
-    return null;
-  }
-
   void _signup() {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _isLoading = true; _errorMessage = null; });
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     final otps = AuthService().signupUser(
       _nameController.text.trim(),
       _emailController.text.trim(),
       _numberController.text.trim(),
+      _passwordController.text.trim(),
     );
+
     setState(() {
       _isLoading = false;
       _emailOtp = otps['emailOtp'];
       _numberOtp = otps['numberOtp'];
     });
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -68,17 +56,39 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) return 'Please enter your email';
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(value)) return 'Please enter a valid email';
+    return null;
+  }
+
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) return 'Please enter your phone number';
+    final phoneRegex = RegExp(r'^\d{10}$');
+    if (!phoneRegex.hasMatch(value)) return 'Enter a valid 10-digit phone number';
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) return 'Please enter a password';
+    if (value.length < 6) return 'Password must be at least 6 characters';
+    return null;
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _numberController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -93,54 +103,35 @@ class _SignupScreenState extends State<SignupScreen> {
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                  validator: (value) => value == null || value.isEmpty ? 'Please enter your name' : null,
-                ),
+                _buildTextField(_nameController, 'Name', Icons.person, null),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: _validateEmail,
-                ),
+                _buildTextField(_emailController, 'Email', Icons.email, _validateEmail),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _numberController,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone Number',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone),
-                  ),
-                  keyboardType: TextInputType.phone,
-                  validator: _validatePhone,
+                _buildTextField(_numberController, 'Phone Number', Icons.phone, _validatePhone),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  _passwordController,
+                  'Password',
+                  Icons.lock,
+                  _validatePassword,
+                  obscure: true,
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _signup,
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Sign Up'),
+                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                      : const Text('Sign Up'),
                 ),
                 if (_errorMessage != null)
                   Padding(
@@ -153,7 +144,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Already have an account? Login'),
+                  child: const Text("Already have an account? Login", style: TextStyle(color: Colors.grey)),
                 ),
               ],
             ),
@@ -162,4 +153,27 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
     );
   }
-} 
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon,
+    String? Function(String?)? validator, {
+    bool obscure = false,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscure,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: Colors.grey[900],
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        labelStyle: const TextStyle(color: Colors.white),
+      ),
+      style: const TextStyle(color: Colors.white),
+      validator: validator,
+    );
+  }
+}

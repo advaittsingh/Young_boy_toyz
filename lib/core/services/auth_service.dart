@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_role.dart';
@@ -7,128 +8,152 @@ class AuthService {
   factory AuthService() => _instance;
   AuthService._internal();
 
+  SharedPreferences? _prefs;
+
   String? _currentUserEmail;
   UserRole? _currentUserRole;
   String? _pendingEmail;
   String? _pendingNumber;
   String? _pendingName;
+  String? _pendingPassword;
   String? _generatedEmailOtp;
   String? _generatedNumberOtp;
-  late SharedPreferences _prefs;
 
-  // Super admin credentials
   static const String superAdminEmail = 'Superadmin@ybt.com';
   static const String superAdminPassword = 'superadmin123';
 
-  // In-memory user store (email -> number)
-  final Map<String, String> _users = {};
+  final Map<String, Map<String, String>> _users = {}; // email -> {password, phone}
 
   String? get currentUserEmail => _currentUserEmail;
   UserRole? get currentUserRole => _currentUserRole;
 
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
-    _currentUserEmail = _prefs.getString('currentUserEmail');
-    final roleString = _prefs.getString('currentUserRole');
-    if (roleString != null) {
+
+    _currentUserEmail = _prefs?.getString('currentUserEmail');
+    final roleStr = _prefs?.getString('currentUserRole');
+    if (roleStr != null) {
       _currentUserRole = UserRole.values.firstWhere(
-        (role) => role.toString() == roleString,
+        (r) => r.toString() == roleStr,
         orElse: () => UserRole.user,
       );
     }
-    
-    // Load users from preferences
-    final usersJson = _prefs.getString('users');
+
+    final usersJson = _prefs?.getString('users');
     if (usersJson != null) {
-      final Map<String, dynamic> decoded = Map<String, dynamic>.from(
-        Map<String, dynamic>.from(usersJson as Map)
-      );
-      _users.addAll(Map<String, String>.from(decoded));
+      final decoded = json.decode(usersJson);
+      for (var entry in decoded.entries) {
+        _users[entry.key] = Map<String, String>.from(entry.value);
+      }
     }
   }
 
-  // Super admin login
-  bool loginSuperAdmin(String email, String password) {
+  Future<UserRole?> loginWithPassword(String email, String password) async {
     if (email == superAdminEmail && password == superAdminPassword) {
       _currentUserEmail = email;
       _currentUserRole = UserRole.superAdmin;
-      _saveUserState();
-      return true;
+      await _saveUserState();
+      return UserRole.superAdmin;
     }
-    return false;
-  }
 
-  // User signup (returns generated OTPs)
-  Map<String, String> signupUser(String name, String email, String number) {
-    _pendingName = name;
-    _pendingEmail = email;
-    _pendingNumber = number;
-    _generatedEmailOtp = _generateOtp();
-    _generatedNumberOtp = _generateOtp();
-    return {
-      'emailOtp': _generatedEmailOtp!,
-      'numberOtp': _generatedNumberOtp!,
-    };
-  }
-
-  // User OTP verification
-  bool verifyUserOtp(String emailOtp, String numberOtp) {
-    if (emailOtp == _generatedEmailOtp && numberOtp == _generatedNumberOtp) {
-      _users[_pendingEmail!] = _pendingNumber!;
-      _currentUserEmail = _pendingEmail;
+    if (_users.containsKey(email) && _users[email]!['password'] == password) {
+      _currentUserEmail = email;
       _currentUserRole = UserRole.user;
-      _saveUserState();
-      _pendingEmail = null;
-      _pendingNumber = null;
-      _pendingName = null;
-      _generatedEmailOtp = null;
-      _generatedNumberOtp = null;
-      return true;
+      await _saveUserState();
+      return UserRole.user;
     }
-    return false;
+
+    return null;
   }
 
-  // User login (OTP flow)
-  String? loginUser(String email, String number) {
-    if (_users.containsKey(email) && _users[email] == number) {
+  String? loginWithOtp(String email, String phone) {
+    if (_users.containsKey(email) && _users[email]!['phone'] == phone) {
       _pendingEmail = email;
-      _pendingNumber = number;
+      _pendingNumber = phone;
       _generatedEmailOtp = _generateOtp();
       _generatedNumberOtp = _generateOtp();
-      return _generatedEmailOtp!; // For demo, return email OTP (number OTP is similar)
+      return _generatedEmailOtp!;
     }
     return null;
+  }
+
+  String? getGeneratedNumberOtp() {
+    return _generatedNumberOtp;
   }
 
   bool verifyLoginOtp(String emailOtp, String numberOtp) {
     if (emailOtp == _generatedEmailOtp && numberOtp == _generatedNumberOtp) {
       _currentUserEmail = _pendingEmail;
       _currentUserRole = UserRole.user;
+      _clearPending();
       _saveUserState();
-      _pendingEmail = null;
-      _pendingNumber = null;
-      _generatedEmailOtp = null;
-      _generatedNumberOtp = null;
       return true;
     }
     return false;
   }
 
-  void logout() {
-    _currentUserEmail = null;
-    _currentUserRole = null;
-    _prefs.remove('currentUserEmail');
-    _prefs.remove('currentUserRole');
+  Map<String, String> signupUser(String name, String email, String phone, String password) {
+    _pendingName = name;
+    _pendingEmail = email;
+    _pendingNumber = phone;
+    _pendingPassword = password;
+
+    _generatedEmailOtp = _generateOtp();
+    _generatedNumberOtp = _generateOtp();
+
+    return {
+      'emailOtp': _generatedEmailOtp!,
+      'numberOtp': _generatedNumberOtp!,
+    };
   }
 
-  void _saveUserState() {
-    _prefs.setString('currentUserEmail', _currentUserEmail ?? '');
-    _prefs.setString('currentUserRole', _currentUserRole?.toString() ?? '');
-    _prefs.setString('users', _users.toString());
+  bool verifyUserOtp(String emailOtp, String numberOtp) {
+    if (emailOtp == _generatedEmailOtp && numberOtp == _generatedNumberOtp) {
+      _users[_pendingEmail!] = {
+        'password': _pendingPassword!,
+        'phone': _pendingNumber!,
+      };
+
+      _currentUserEmail = _pendingEmail;
+      _currentUserRole = UserRole.user;
+      _clearPending();
+      _saveUserState();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> logout() async {
+    _currentUserEmail = null;
+    _currentUserRole = null;
+    await _prefs?.remove('currentUserEmail');
+    await _prefs?.remove('currentUserRole');
+  }
+
+  Future<void> _saveUserState() async {
+    await _prefs?.setString('currentUserEmail', _currentUserEmail ?? '');
+    await _prefs?.setString('currentUserRole', _currentUserRole?.toString() ?? '');
+    final usersJson = json.encode(_users);
+    await _prefs?.setString('users', usersJson);
+  }
+
+  void _clearPending() {
+    _pendingEmail = null;
+    _pendingName = null;
+    _pendingNumber = null;
+    _pendingPassword = null;
+    _generatedEmailOtp = null;
+    _generatedNumberOtp = null;
   }
 
   String _generateOtp() {
     final rand = Random();
     return (100000 + rand.nextInt(900000)).toString();
   }
-} 
+
+  Future<bool> isUserLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString('currentUserEmail');
+    return email != null && email.isNotEmpty;
+  }
+}
