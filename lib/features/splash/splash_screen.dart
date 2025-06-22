@@ -14,6 +14,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   late VideoPlayerController _controller;
   bool _isVideoInitialized = false;
+  bool _hasNavigated = false;
 
   @override
   void initState() {
@@ -22,30 +23,30 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeVideo() async {
-    _controller = VideoPlayerController.asset('assets/videos/ybt new intro 1.mp4');
-    
+    _controller = VideoPlayerController.asset('assets/videos/ybt_intro_1.mp4'); // ✅ Rename your file!
+
     try {
       await _controller.initialize();
-      await _controller.setLooping(false);
-      await _controller.play();
-      
-      if (mounted) {
-        setState(() {
-          _isVideoInitialized = true;
-        });
-      }
+      setState(() {
+        _isVideoInitialized = true;
+      });
 
-      // Listen for video completion
+      _controller.play();
+      _controller.setLooping(false);
+
+      // Add listener for end of video
       _controller.addListener(() {
-        if (_controller.value.position >= _controller.value.duration) {
+        if (_controller.value.position >= _controller.value.duration &&
+            !_hasNavigated) {
+          _hasNavigated = true;
           _navigateToNextScreen();
         }
       });
     } catch (e) {
-      print('Error initializing video: $e');
-      // If video fails to load, navigate after a delay
+      print('Video load failed: $e');
       Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
+        if (mounted && !_hasNavigated) {
+          _hasNavigated = true;
           _navigateToNextScreen();
         }
       });
@@ -54,17 +55,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _navigateToNextScreen() {
     final authService = AuthService();
-    if (authService.currentUserEmail == null) {
-      // User is not logged in, navigate to login screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-    } else {
-      // User is logged in, navigate to home screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-    }
+    final isLoggedIn = authService.currentUserEmail != null;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => isLoggedIn ? const HomeScreen() : const LoginScreen(),
+      ),
+    );
   }
 
   @override
@@ -83,10 +80,8 @@ class _SplashScreenState extends State<SplashScreen> {
                 aspectRatio: _controller.value.aspectRatio,
                 child: VideoPlayer(_controller),
               )
-            : const CircularProgressIndicator(
-                color: Colors.white,
-              ),
+            : const CircularProgressIndicator(color: Colors.white),
       ),
     );
   }
-} 
+}
