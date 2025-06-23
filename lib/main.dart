@@ -1,34 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:young_boy_toyz/features/splash/splash_screen.dart';
-import 'package:young_boy_toyz/theme/app_theme.dart';
-import 'core/services/auth_service.dart';
+import 'features/home/home_screen.dart'; // Change this to your actual home screen
 import 'features/auth/login_screen.dart';
-import 'features/home/home_screen.dart';
+import 'core/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await AuthService().initialize();
-  } catch (e) {
-    print('Error initializing AuthService: $e');
-  }
-  runApp(const MyApp());
+
+  final authService = AuthService();
+  final isLoggedIn = await authService.isLoggedIn();
+
+  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn;
+
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Young Boy Toyz',
-      theme: AppTheme.darkTheme,
       debugShowCheckedModeBanner: false,
-      home: const SplashScreen(),
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/home': (context) => const HomeScreen(),
-      },
+      title: 'Your App',
+      theme: ThemeData.dark(), // or your custom AppTheme
+      home: isLoggedIn ? const HomeScreen() : const LoginScreen(),
     );
   }
 }

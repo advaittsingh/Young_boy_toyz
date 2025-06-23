@@ -1,159 +1,186 @@
 import 'dart:convert';
-import 'dart:math';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../models/user_role.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
   AuthService._internal();
 
-  SharedPreferences? _prefs;
+  final _storage = const FlutterSecureStorage();
 
-  String? _currentUserEmail;
-  UserRole? _currentUserRole;
-  String? _pendingEmail;
-  String? _pendingNumber;
-  String? _pendingName;
-  String? _pendingPassword;
-  String? _generatedEmailOtp;
-  String? _generatedNumberOtp;
+  // ⚠️ Change this to your computer's local IP if you're using a real iPhone
+  static const String baseUrl = 'http://localhost:5001';
 
-  static const String superAdminEmail = 'Superadmin@ybt.com';
-  static const String superAdminPassword = 'superadmin123';
+  // ====================
+  // = AUTH: SIGN UP FLOW =
+  // ====================
 
-  final Map<String, Map<String, String>> _users = {}; // email -> {password, phone}
-
-  String? get currentUserEmail => _currentUserEmail;
-  UserRole? get currentUserRole => _currentUserRole;
-
-  Future<void> initialize() async {
-    _prefs = await SharedPreferences.getInstance();
-
-    _currentUserEmail = _prefs?.getString('currentUserEmail');
-    final roleStr = _prefs?.getString('currentUserRole');
-    if (roleStr != null) {
-      _currentUserRole = UserRole.values.firstWhere(
-        (r) => r.toString() == roleStr,
-        orElse: () => UserRole.user,
+  // Send OTP for Signup
+  Future<Map<String, dynamic>?> sendOtpForSignup(String name, String email) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/send-signup-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'name': name, 'email': email}),
       );
+      if (res.statusCode == 200) return json.decode(res.body);
+    } catch (e) {
+      print('sendOtpForSignup error: $e');
     }
+    return null;
+  }
 
-    final usersJson = _prefs?.getString('users');
-    if (usersJson != null) {
-      final decoded = json.decode(usersJson);
-      for (var entry in decoded.entries) {
-        _users[entry.key] = Map<String, String>.from(entry.value);
+  // Verify OTP and Signup
+  Future<bool> verifySignupOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/verify-signup-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'otp': otp}),
+      );
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        await saveSession(
+          token: data['token'],
+          name: data['name'],
+          email: data['email'],
+          role: data['role'],
+        );
+        return true;
       }
-    }
-  }
-
-  Future<UserRole?> loginWithPassword(String email, String password) async {
-    if (email == superAdminEmail && password == superAdminPassword) {
-      _currentUserEmail = email;
-      _currentUserRole = UserRole.superAdmin;
-      await _saveUserState();
-      return UserRole.superAdmin;
-    }
-
-    if (_users.containsKey(email) && _users[email]!['password'] == password) {
-      _currentUserEmail = email;
-      _currentUserRole = UserRole.user;
-      await _saveUserState();
-      return UserRole.user;
-    }
-
-    return null;
-  }
-
-  String? loginWithOtp(String email, String phone) {
-    if (_users.containsKey(email) && _users[email]!['phone'] == phone) {
-      _pendingEmail = email;
-      _pendingNumber = phone;
-      _generatedEmailOtp = _generateOtp();
-      _generatedNumberOtp = _generateOtp();
-      return _generatedEmailOtp!;
-    }
-    return null;
-  }
-
-  String? getGeneratedNumberOtp() {
-    return _generatedNumberOtp;
-  }
-
-  bool verifyLoginOtp(String emailOtp, String numberOtp) {
-    if (emailOtp == _generatedEmailOtp && numberOtp == _generatedNumberOtp) {
-      _currentUserEmail = _pendingEmail;
-      _currentUserRole = UserRole.user;
-      _clearPending();
-      _saveUserState();
-      return true;
+    } catch (e) {
+      print('verifySignupOtp error: $e');
     }
     return false;
   }
 
-  Map<String, String> signupUser(String name, String email, String phone, String password) {
-    _pendingName = name;
-    _pendingEmail = email;
-    _pendingNumber = phone;
-    _pendingPassword = password;
-
-    _generatedEmailOtp = _generateOtp();
-    _generatedNumberOtp = _generateOtp();
-
-    return {
-      'emailOtp': _generatedEmailOtp!,
-      'numberOtp': _generatedNumberOtp!,
-    };
-  }
-
-  bool verifyUserOtp(String emailOtp, String numberOtp) {
-    if (emailOtp == _generatedEmailOtp && numberOtp == _generatedNumberOtp) {
-      _users[_pendingEmail!] = {
-        'password': _pendingPassword!,
-        'phone': _pendingNumber!,
-      };
-
-      _currentUserEmail = _pendingEmail;
-      _currentUserRole = UserRole.user;
-      _clearPending();
-      _saveUserState();
-      return true;
+  // Signup using password
+  Future<bool> signupWithPassword({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/signup-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'name': name, 'email': email, 'password': password}),
+      );
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        await saveSession(
+          token: data['token'],
+          name: data['name'],
+          email: data['email'],
+          role: data['role'],
+        );
+        return true;
+      }
+    } catch (e) {
+      print('signupWithPassword error: $e');
     }
     return false;
   }
 
-  Future<void> logout() async {
-    _currentUserEmail = null;
-    _currentUserRole = null;
-    await _prefs?.remove('currentUserEmail');
-    await _prefs?.remove('currentUserRole');
+  // ===================
+  // = AUTH: LOGIN FLOW =
+  // ===================
+
+  // Send OTP for Login
+  Future<Map<String, dynamic>?> sendOtpForLogin(String email) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/send-login-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email}),
+      );
+      if (res.statusCode == 200) return json.decode(res.body);
+    } catch (e) {
+      print('sendOtpForLogin error: $e');
+    }
+    return null;
   }
 
-  Future<void> _saveUserState() async {
-    await _prefs?.setString('currentUserEmail', _currentUserEmail ?? '');
-    await _prefs?.setString('currentUserRole', _currentUserRole?.toString() ?? '');
-    final usersJson = json.encode(_users);
-    await _prefs?.setString('users', usersJson);
+  // Verify OTP Login
+  Future<bool> verifyLoginOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/verify-login-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'otp': otp}),
+      );
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        await saveSession(
+          token: data['token'],
+          name: data['name'],
+          email: data['email'],
+          role: data['role'],
+        );
+        return true;
+      }
+    } catch (e) {
+      print('verifyLoginOtp error: $e');
+    }
+    return false;
   }
 
-  void _clearPending() {
-    _pendingEmail = null;
-    _pendingName = null;
-    _pendingNumber = null;
-    _pendingPassword = null;
-    _generatedEmailOtp = null;
-    _generatedNumberOtp = null;
+  // Login using password
+  Future<bool> loginWithPassword({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/login-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'password': password}),
+      );
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        await saveSession(
+          token: data['token'],
+          name: data['name'],
+          email: data['email'],
+          role: data['role'],
+        );
+        return true;
+      }
+    } catch (e) {
+      print('loginWithPassword error: $e');
+    }
+    return false;
   }
 
-  String _generateOtp() {
-    final rand = Random();
-    return (100000 + rand.nextInt(900000)).toString();
+  // ========================
+  // = SESSION MANAGEMENT =
+  // ========================
+
+  Future<void> saveSession({
+    required String token,
+    required String name,
+    required String email,
+    required String role,
+  }) async {
+    await _storage.write(key: 'token', value: token);
+    await _storage.write(key: 'name', value: name);
+    await _storage.write(key: 'email', value: email);
+    await _storage.write(key: 'role', value: role);
   }
 
-  Future<bool> isUserLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    final email = prefs.getString('currentUserEmail');
-    return email != null && email.isNotEmpty;
-  }
+  Future<bool> isLoggedIn() async => await _storage.read(key: 'token') != null;
+  Future<void> logout() async => await _storage.deleteAll();
+
+  // Getters
+  Future<String?> getToken() async => await _storage.read(key: 'token');
+  Future<String?> getName() async => await _storage.read(key: 'name');
+  Future<String?> getEmail() async => await _storage.read(key: 'email');
+  Future<String?> getRole() async => await _storage.read(key: 'role');
 }

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../features/auth/otp_screen.dart';
+import '../../theme/app_theme.dart';
 import '../../core/services/auth_service.dart';
-import '../home/home_screen.dart';
-import 'otp_screen.dart';
-import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,202 +11,137 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _numberController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  bool _isOtpLogin = true;
-  bool _isLoading = false;
-  String? _errorMessage;
+  bool isOtpMode = false;
+  bool isLoading = false;
+  String? error;
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _numberController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loginWithOtp() async {
+  void toggleLoginMode() {
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      isOtpMode = !isOtpMode;
+      error = null;
     });
-
-    final email = _emailController.text.trim();
-    final number = _numberController.text.trim();
-
-    final emailOtp = AuthService().loginWithOtp(email, number);
-
-    if (emailOtp != null) {
-      final numberOtp = AuthService().getGeneratedNumberOtp();
-
-      setState(() => _isLoading = false);
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OTPScreen(
-            isLogin: true,
-            email: email,
-            number: number,
-            emailOtp: emailOtp,
-            numberOtp: numberOtp,
-          ),
-        ),
-      );
-    } else {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Invalid credentials. Try again.';
-      });
-    }
   }
 
-  Future<void> _loginWithPassword() async {
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      isLoading = true;
+      error = null;
     });
 
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    final role = await AuthService().loginWithPassword(email, password);
+    try {
+      if (isOtpMode) {
+        final otpResult = await AuthService().sendOtpForLogin(email);
+        if (otpResult != null) {
+          if (!mounted) return;
+          Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (context) => OTPScreen(
+      isLogin: true,
+      email: email,
+    ),
+  ),
+);
 
-    if (role != null) {
-      setState(() => _isLoading = false);
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-        (route) => false,
-      );
-    } else {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Invalid email or password.';
-      });
+        } else {
+          setState(() => error = 'Failed to send OTP.');
+        }
+      } else {
+        final success = await AuthService().loginWithPassword(
+          email: email,
+          password: password,
+        );
+        if (success) {
+          if (!mounted) return;
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          setState(() => error = 'Invalid email or password.');
+        }
+      }
+    } catch (e) {
+      setState(() => error = 'Something went wrong: $e');
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      backgroundColor: AppTheme.primaryBlack,
+      appBar: AppBar(title: const Text('Login')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
             children: [
-              const SizedBox(height: 40),
-              const Text(
-                'Login',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              TextField(
+              TextFormField(
                 controller: _emailController,
-                decoration: InputDecoration(
+                style: const TextStyle(color: AppTheme.textWhite),
+                decoration: const InputDecoration(
                   labelText: 'Email',
-                  prefixIcon: const Icon(Icons.email),
-                  filled: true,
-                  fillColor: Colors.grey[900],
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  labelStyle: const TextStyle(color: Colors.red),
+                  labelStyle: TextStyle(color: AppTheme.textGrey),
                 ),
-                keyboardType: TextInputType.emailAddress,
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Enter email' : null,
+              ),
+              if (!isOtpMode) ...[
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passwordController,
+                  style: const TextStyle(color: AppTheme.textWhite),
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    labelStyle: TextStyle(color: AppTheme.textGrey),
+                  ),
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Enter password' : null,
+                ),
+              ],
+              const SizedBox(height: 24),
+              if (error != null)
+                Text(
+                  error!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isLoading ? null : _handleLogin,
+                  child: isLoading
+                      ? const CircularProgressIndicator()
+                      : Text(isOtpMode ? 'Send OTP' : 'Login'),
+                ),
               ),
               const SizedBox(height: 16),
-              if (_isOtpLogin)
-                TextField(
-                  controller: _numberController,
-                  decoration: InputDecoration(
-                    labelText: 'Phone Number',
-                    prefixIcon: const Icon(Icons.phone),
-                    filled: true,
-                    fillColor: Colors.grey[900],
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  keyboardType: TextInputType.phone,
-                ),
-              if (!_isOtpLogin)
-                TextField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock),
-                    filled: true,
-                    fillColor: Colors.grey[900],
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  obscureText: true,
-                ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading
-                    ? null
-                    : _isOtpLogin
-                        ? _loginWithOtp
-                        : _loginWithPassword,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : Text(
-                        _isOtpLogin ? 'Login with OTP' : 'Login with Password',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-              ),
-              const SizedBox(height: 12),
               TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isOtpLogin = !_isOtpLogin;
-                    _errorMessage = null;
-                  });
-                },
+                onPressed: toggleLoginMode,
                 child: Text(
-                  _isOtpLogin ? 'Login with Password instead' : 'Login with OTP instead',
-                  style: const TextStyle(color: Colors.grey),
+                  isOtpMode
+                      ? 'Login with Password'
+                      : 'Login with OTP instead',
+                  style: const TextStyle(color: AppTheme.accentRed),
                 ),
               ),
+              const SizedBox(height: 8),
               TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SignupScreen()),
-                  );
-                },
+                onPressed: () => Navigator.pushNamed(context, '/signup'),
                 child: const Text(
                   "Don't have an account? Sign up",
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: AppTheme.textGrey),
                 ),
               ),
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
             ],
           ),
         ),

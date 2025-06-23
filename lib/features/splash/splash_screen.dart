@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:video_player/video_player.dart';
-import '../../core/services/auth_service.dart';
-import '../auth/login_screen.dart';
-import '../home/home_screen.dart';
+
+import '../features/home/home_screen.dart';
+import '../features/auth/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,65 +14,40 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  late VideoPlayerController _controller;
-  bool _isVideoInitialized = false;
-  bool _hasNavigated = false;
-  bool _isLoggedIn = false;
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  late VideoPlayerController _videoController;
 
   @override
   void initState() {
     super.initState();
-    _setupSplashFlow();
+    _initSplash();
   }
 
-  Future<void> _setupSplashFlow() async {
-    final authService = AuthService();
-    await authService.initialize(); // ensure SharedPreferences and user state is loaded
-    _isLoggedIn = await authService.isUserLoggedIn(); // check login state
-    await _initializeVideo();
-  }
+  Future<void> _initSplash() async {
+    _videoController = VideoPlayerController.asset("assets/videos/ybt_intro_1.mp4");
+    await _videoController.initialize();
+    _videoController.play();
 
-  Future<void> _initializeVideo() async {
-    _controller = VideoPlayerController.asset('assets/videos/ybt_intro_1.mp4');
+    await Future.delayed(const Duration(seconds: 3));
 
-    try {
-      await _controller.initialize();
-      setState(() {
-        _isVideoInitialized = true;
-      });
+    final token = await _storage.read(key: 'token');
 
-      await _controller.setLooping(false);
-      await _controller.play();
-
-      _controller.addListener(() {
-        if (_controller.value.position >= _controller.value.duration &&
-            !_hasNavigated) {
-          _hasNavigated = true;
-          _navigateToNextScreen();
-        }
-      });
-    } catch (e) {
-      debugPrint('Video load failed: $e');
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted && !_hasNavigated) {
-          _hasNavigated = true;
-          _navigateToNextScreen();
-        }
-      });
+    if (token != null && token.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     }
-  }
-
-  void _navigateToNextScreen() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => _isLoggedIn ? const HomeScreen() : const LoginScreen(),
-      ),
-    );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _videoController.dispose();
     super.dispose();
   }
 
@@ -78,13 +55,25 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Center(
-        child: _isVideoInitialized
-            ? AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: VideoPlayer(_controller),
-              )
-            : const CircularProgressIndicator(color: Colors.white),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          VideoPlayer(_videoController),
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.5),
+              alignment: Alignment.center,
+              child: const Text(
+                'Young Boy Toyz',
+                style: TextStyle(
+                  fontSize: 32,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

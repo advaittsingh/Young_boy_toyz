@@ -36,8 +36,6 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       _successMessage = null;
     });
 
-    // TODO: Implement actual password change logic with backend
-    // For now, we'll just simulate a successful password change
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
       setState(() {
@@ -53,14 +51,11 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Privacy Settings'),
-      ),
+      appBar: AppBar(title: const Text('Privacy Settings')),
       backgroundColor: AppTheme.primaryBlack,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Password Change Section
           Card(
             color: AppTheme.secondaryBlack,
             child: Padding(
@@ -68,14 +63,11 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Change Password',
-                    style: TextStyle(
-                      color: AppTheme.textWhite,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  const Text('Change Password',
+                      style: TextStyle(
+                          color: AppTheme.textWhite,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   Form(
                     key: _formKey,
@@ -89,12 +81,8 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                           ),
                           obscureText: true,
                           style: const TextStyle(color: AppTheme.textWhite),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your current password';
-                            }
-                            return null;
-                          },
+                          validator: (value) =>
+                              value!.isEmpty ? 'Please enter your current password' : null,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -136,21 +124,10 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                         ),
                         const SizedBox(height: 24),
                         if (_errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                          ),
+                          Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
                         if (_successMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Text(
-                              _successMessage!,
-                              style: const TextStyle(color: Colors.green),
-                            ),
-                          ),
+                          Text(_successMessage!, style: const TextStyle(color: Colors.green)),
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -168,7 +145,6 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Privacy Options Section
           Card(
             color: AppTheme.secondaryBlack,
             child: Padding(
@@ -176,94 +152,18 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Privacy Options',
-                    style: TextStyle(
-                      color: AppTheme.textWhite,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SwitchListTile(
-                    title: const Text(
-                      'Profile Visibility',
-                      style: TextStyle(color: AppTheme.textWhite),
-                    ),
-                    subtitle: const Text(
-                      'Allow other users to view your profile',
-                      style: TextStyle(color: AppTheme.textGrey),
-                    ),
-                    value: true,
-                    onChanged: (value) {
-                      // TODO: Implement profile visibility toggle
-                    },
-                    activeColor: AppTheme.accentRed,
-                  ),
-                  const Divider(color: AppTheme.textGrey),
-                  SwitchListTile(
-                    title: const Text(
-                      'Activity Status',
-                      style: TextStyle(color: AppTheme.textWhite),
-                    ),
-                    subtitle: const Text(
-                      'Show when you were last active',
-                      style: TextStyle(color: AppTheme.textGrey),
-                    ),
-                    value: true,
-                    onChanged: (value) {
-                      // TODO: Implement activity status toggle
-                    },
-                    activeColor: AppTheme.accentRed,
-                  ),
-                  const Divider(color: AppTheme.textGrey),
-                  SwitchListTile(
-                    title: const Text(
-                      'Email Notifications',
-                      style: TextStyle(color: AppTheme.textWhite),
-                    ),
-                    subtitle: const Text(
-                      'Receive email updates about your account',
-                      style: TextStyle(color: AppTheme.textGrey),
-                    ),
-                    value: true,
-                    onChanged: (value) {
-                      // TODO: Implement email notifications toggle
-                    },
-                    activeColor: AppTheme.accentRed,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Data & Privacy Section
-          Card(
-            color: AppTheme.secondaryBlack,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Data & Privacy',
-                    style: TextStyle(
-                      color: AppTheme.textWhite,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  const Text('Data & Privacy',
+                      style: TextStyle(
+                          color: AppTheme.textWhite,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   ListTile(
                     leading: const Icon(Icons.download, color: AppTheme.accentRed),
-                    title: const Text(
-                      'Download My Data',
-                      style: TextStyle(color: AppTheme.textWhite),
-                    ),
-                    subtitle: const Text(
-                      'Get a copy of your personal data',
-                      style: TextStyle(color: AppTheme.textGrey),
-                    ),
+                    title: const Text('Download My Data',
+                        style: TextStyle(color: AppTheme.textWhite)),
+                    subtitle: const Text('Get a copy of your personal data',
+                        style: TextStyle(color: AppTheme.textGrey)),
                     onTap: () async {
                       try {
                         setState(() {
@@ -272,7 +172,13 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                           _successMessage = null;
                         });
 
-                        await DataExportService().exportUserData();
+                        final dummyUserData = {
+                          "name": await AuthService().getName(),
+                          "email": await AuthService().getEmail(),
+                          "role": await AuthService().getRole(),
+                        };
+
+                        await DataExportService.exportUserData(dummyUserData);
 
                         if (!mounted) return;
                         setState(() {
@@ -295,22 +201,16 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                   const Divider(color: AppTheme.textGrey),
                   ListTile(
                     leading: const Icon(Icons.delete_forever, color: Colors.red),
-                    title: const Text(
-                      'Delete Account',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                    subtitle: const Text(
-                      'Permanently delete your account and data',
-                      style: TextStyle(color: AppTheme.textGrey),
-                    ),
+                    title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+                    subtitle: const Text('Permanently delete your account and data',
+                        style: TextStyle(color: AppTheme.textGrey)),
                     onTap: () {
                       showDialog(
                         context: context,
                         builder: (context) => AlertDialog(
                           title: const Text('Delete Account'),
                           content: const Text(
-                            'Are you sure you want to delete your account? This action cannot be undone.',
-                          ),
+                              'Are you sure you want to delete your account? This action cannot be undone.'),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context),
@@ -321,10 +221,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                                 // TODO: Implement account deletion
                                 Navigator.pop(context);
                               },
-                              child: const Text(
-                                'Delete',
-                                style: TextStyle(color: Colors.red),
-                              ),
+                              child: const Text('Delete', style: TextStyle(color: Colors.red)),
                             ),
                           ],
                         ),
@@ -339,4 +236,4 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       ),
     );
   }
-} 
+}
